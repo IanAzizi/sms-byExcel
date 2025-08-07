@@ -1,40 +1,50 @@
-const dayjs = require('dayjs');
-const sendSMS = require('./smsSender');
+const moment = require('moment-jalaali');
+const sendTestSms = require('./smsSender');
 
-const CUTOFF_DATE = dayjs('2025-08-06');
+// پردازش یک چک
+async function processCheck(check) {
+  const checkDateJalali = check.dueDate; // تاریخ میلادی، تبدیل‌شده
+  const checkNumber = check.checkNumber;
+  const unit = check.unit;
+  const phone = check.phoneNumber;
 
-async function processOverdueChecks(checks) {
-  for (const check of checks) {
-    console.log(`⏳ بررسی چک شماره ${check.checkNumber} با تاریخ: ${check.dueDate}`);
+  const checkDate = moment(checkDateJalali, 'YYYY-MM-DD');
+  const today = moment();
 
-    const due = dayjs(check.dueDate);
+  const daysRemaining = checkDate.diff(today, 'days');
 
-    if (!due.isValid()) {
-      console.log('⚠️ تاریخ نامعتبره، رد می‌شه');
-      continue;
-    }
+  console.log(`⏳ بررسی چک شماره ${checkNumber} - باقی‌مانده: ${daysRemaining} روز`);
 
-    if (due.isBefore(CUTOFF_DATE)) {
-      if (!check.phoneNumber) {
-        console.warn(`⚠️ شماره تماس برای چک ${check.checkNumber} موجود نیست`);
-        continue;
-      }
+  let message = null;
 
-const message = `❗️مستاجر گرامی: ضمن اعلام عدم وصول چک سریال شماره ${check.checkNumber} مربوط به اجاره مغازه شماره ${check.unit} در مجتمع بندرعباس مال، لطفاً برای جلوگیری از اقدام قضایی، وجه چک را حداکثر تا تاریخ ۱۴۰۴.۰۵.۲۸ کارسازی و مراتب را به مدیریت مالی مجتمع اعلام نمایید.`;
-
-      console.log('🚨 چک عقب‌افتاده است، ارسال پیامک...');
-      console.log('📤 ارسال پیامک به:', check.phoneNumber);
-
-      await sendSMS({
-        message,
-        receivers: [String(check.phoneNumber)],
-      });
-    } else {
-      console.log('✅ چک هنوز سررسید نشده، پیام ارسال نمی‌شود.');
-    }
+  if (daysRemaining === 10) {
+    message = `مستاجر گرامی، فقط ۱۰ روز تا تاریخ سررسید چک شماره ${checkNumber} مربوط به اجاره مغازه شماره ${unit} در مجتمع بندرعباس مال باقی مانده است. لطفاً برای جلوگیری از مشکل، وجه چک را تا تاریخ ۱۴۰۴.۰۵.۲۸ پرداخت نمایید.`;
+  } else if (daysRemaining === 5) {
+    message = `مستاجر گرامی، فقط ۵ روز تا سررسید چک شماره ${checkNumber} باقی مانده است. لطفاً برای اجتناب از اقدامات بعدی، وجه مربوطه را در اسرع وقت پرداخت نمایید.`;
+  } else if (daysRemaining === 3) {
+    message = `مستاجر گرامی، تنها ۳ روز تا سررسید چک شماره ${checkNumber} باقیمانده است. لطفاً پرداخت را در اولویت قرار دهید.`;
+  } else if (daysRemaining < 0) {
+    message = `❗️مستاجر گرامی، ضمن اعلام عدم وصول چک سریال شماره ${checkNumber} مربوط به اجاره مغازه شماره ${unit} در مجتمع بندرعباس مال، لطفاً برای جلوگیری از اقدام قضایی، وجه چک را حداکثر تا تاریخ ۱۴۰۴.۰۵.۲۸ کارسازی و مراتب را به مدیریت مالی مجتمع اعلام نمایید.`;
   }
 
-  console.log('✅ بررسی همه چک‌ها به پایان رسید.');
+  if (message && phone) {
+    console.log(`📤 ارسال پیامک به ${phone}`);
+    await sendTestSms({
+      receivers: [String(phone)],
+      message,
+    });
+  } else if (!phone) {
+    console.warn(`⚠️ شماره تماس برای چک ${checkNumber} تعریف نشده.`);
+  }
 }
 
-module.exports = processOverdueChecks;
+// پردازش همه چک‌ها
+async function processOverdueChecks(checks) {
+  for (const check of checks) {
+    await processCheck(check);
+  }
+}
+
+module.exports = {
+  processOverdueChecks,
+};

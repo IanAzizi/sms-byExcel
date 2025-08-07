@@ -4,10 +4,9 @@ const multer = require('multer');
 const path = require('path');
 
 const excelReader = require('./services/excelReader');
-const processOverdueChecks = require('./services/reminder');
+const { processOverdueChecks } = require('./services/reminder'); // ✅ درست ایمپورت کن
 
 const app = express();
-
 const upload = multer({ dest: 'uploads/' });
 
 app.use(express.json());
@@ -19,11 +18,11 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     const filePath = path.join(__dirname, req.file.path);
-console.log('📁 فایل اکسل دریافت شد:', filePath);
+    console.log('📁 فایل اکسل دریافت شد:', filePath);
 
     const checks = await excelReader(filePath);
 
-    await processOverdueChecks(checks);
+    await processOverdueChecks(checks); // ✅ حالا درست صدا زده میشه
 
     return res.json({ success: true, checks });
   } catch (error) {
