@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مدیریت چک‌ها</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.25.6/Babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Vazir', sans-serif; direction: rtl; }
+    @font-face { font-family: 'Vazir'; src: url('https://cdn.fontcdn.ir/Font/Persian/Vazir/Vazir.woff2') format('woff2'); }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // کامپوننت اصلی
+    function App() {
+      const [token, setToken] = useState(localStorage.getItem('token') || '');
+      const [view, setView] = useState(token ? 'upload' : 'login');
+      const [message, setMessage] = useState('');
+
+      // بررسی توکن در شروع
+      useEffect(() => {
+        if (token) {
+          localStorage.setItem('token', token);
+        } else {
+          localStorage.removeItem('token');
+        }
+      }, [token]);
+
+      // تغییر نما
+      const switchView = (newView) => {
+        setView(newView);
+        setMessage('');
+      };
+
+      return (
+        <div className="container mx-auto p-4 max-w-md">
+          {message && (
+            <div className={`p-4 mb-4 rounded ${message.includes('موفقیت') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {message}
+            </div>
+          )}
+          {view === 'login' && <Login setToken={setToken} setMessage={setMessage} switchView={switchView} />}
+          {view === 'register' && <Register setMessage={setMessage} switchView={switchView} />}
+          {view === 'upload' && <Upload token={token} setMessage={setMessage} setToken={setToken} />}
+        </div>
+      );
+    }
+
+    // کامپوننت ورود
+    function Login({ setToken, setMessage, switchView }) {
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+          const response = await axios.post('http://localhost:3001/login', { username, password });
+          setToken(response.data.token);
+          setMessage(response.data.message);
+        } catch (error) {
+          setMessage(error.response?.data.message || 'خطا در ورود');
+        }
+      };
+
+      return (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-bold mb-4 text-center">ورود</h2>
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="نام کاربری"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+            <input
+              type="password"
+              placeholder="رمز عبور"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+            <button
+              onClick={handleLogin}
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            >
+              ورود
+            </button>
+            <button
+              onClick={() => switchView('register')}
+              className="w-full text-blue-500 hover:underline"
+            >
+              ثبت‌نام
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // کامپوننت ثبت‌نام
+    function Register({ setMessage, switchView }) {
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+
+      const handleRegister = async (e) => {
+        e.preventDefault();
+        try {
+          const response = await axios.post('http://localhost:3001/register', { username, password });
+          setMessage(response.data.message);
+          switchView('login');
+        } catch (error) {
+          setMessage(error.response?.data.message || 'خطا در ثبت‌نام');
+        }
+      };
+
+      return (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-bold mb-4 text-center">ثبت‌نام</h2>
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="نام کاربری"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+            <input
+              type="password"
+              placeholder="رمز عبور"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+            <button
+              onClick={handleRegister}
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            >
+              ثبت‌نام
+            </button>
+            <button
+              onClick={() => switchView('login')}
+              className="w-full text-blue-500 hover:underline"
+            >
+              ورود
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // کامپوننت آپلود فایل
+    function Upload({ token, setMessage, setToken }) {
+      const [file, setFile] = useState(null);
+      const [checks, setChecks] = useState([]);
+
+      const handleFileUpload = async (e) => {
+        e.preventDefault();
+        if (!file) {
+          setMessage('لطفاً یک فایل انتخاب کنید');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          const response = await axios.post('http://localhost:3001/upload', formData, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setMessage('فایل با موفقیت آپلود شد');
+          setChecks(response.data.checks);
+        } catch (error) {
+          if (error.response?.status === 401) {
+            setToken('');
+            setMessage('لطفاً دوباره وارد شوید');
+          } else {
+            setMessage(error.response?.data.message || 'خطا در آپلود فایل');
+          }
+        }
+      };
+
+      return (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-bold mb-4 text-center">آپلود فایل اکسل</h2>
+          <div className="space-y-4">
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => setFile(e.target.files[0])}
+              className="w-full p-2 border rounded"
+            />
+            <button
+              onClick={handleFileUpload}
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            >
+              آپلود
+            </button>
+            <button
+              onClick={() => setToken('')}
+              className="w-full text-red-500 hover:underline"
+            >
+              خروج
+            </button>
+            {checks.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold">چک‌های آپلود شده:</h3>
+                <ul className="mt-2 space-y-2">
+                  {checks.map((check, index) => (
+                    <li key={index} className="p-2 bg-gray-50 rounded">
+                      شماره چک: {check.checkNumber} | تاریخ سررسید: {check.dueDate} | واحد: {check.unit}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // رندر اپلیکیشن
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>

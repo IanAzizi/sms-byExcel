@@ -1,20 +1,24 @@
 const axios = require('axios');
 const qs = require('qs');
 require('dotenv').config();
+const SmsLog = require('../models/SmsLog'); // مسیر صحیح رو چک کن
 
 async function sendTestSms({ receivers, message }) {
   const apiKey = process.env.SMS_API_KEY;
   const senderNumber = process.env.SMS_SENDER_NUMBER || 'auto';
   const url = process.env.SMS_URL;
 
+  // اطمینان از اینکه receivers رشته است
+  const receiversStr = Array.isArray(receivers) ? receivers.join(',') : receivers.toString();
+
   const data = {
     action: 'send',
     from: senderNumber,
-    receivers: typeof receivers === 'string' ? receivers : receivers.toString(),
+    receivers: receiversStr,
     text: message,
   };
 
-  console.log('📦 در حال ارسال:', data); // برای دیباگ
+  console.log('📦 در حال ارسال:', data);
 
   try {
     const response = await axios.post(url, qs.stringify(data), {
@@ -31,9 +35,31 @@ async function sendTestSms({ receivers, message }) {
       response: response.data,
     });
 
+    // ذخیره موفقیت‌آمیز در دیتابیس
+    await SmsLog.create({
+      to: data.receivers,
+      from: senderNumber,
+      text: message,
+      response: JSON.stringify(response.data),
+      success: true,
+      sentAt: new Date(),
+    });
+
     return response.data;
   } catch (error) {
-    console.error('❌ خطا در ارسال پیامک:', error.response?.data || error.message || error);
+    const errMsg = error.response?.data || error.message || 'Unknown error';
+    console.error('❌ خطا در ارسال پیامک:', errMsg);
+
+    // ذخیره خطا در دیتابیس
+    await SmsLog.create({
+      to: data.receivers,
+      from: senderNumber,
+      text: message,
+      response: typeof errMsg === 'object' ? JSON.stringify(errMsg) : errMsg,
+      success: false,
+      sentAt: new Date(),
+    });
+
     throw error;
   }
 }
