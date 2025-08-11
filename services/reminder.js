@@ -8,7 +8,7 @@ async function processCheck(check) {
   const phone = check.phoneNumber;
 
   const checkDate = moment(checkDateJalali, 'YYYY-MM-DD');
-  const today = moment();
+  const today = moment(moment().format('jYYYY/jMM/jDD'), 'jYYYY/jMM/jDD');
 
   const daysRemaining = checkDate.diff(today, 'days');
 
